@@ -1,0 +1,219 @@
+<STWidget>:
+    orientation: 'vertical'
+    BoxLayout:
+        orientation: 'horizontal'
+        size_hint_y: None
+        height: 54
+        BoxLayout:
+            orientation: 'vertical'
+            Label:
+                font_size: 12
+                text_size: self.size
+                valign: 'middle'
+                halign: 'left'
+                text: 'Sample name'
+            TextInput:
+                id: sample
+                font_size: 20
+                size_hint_y: None
+                height: 36
+                text: ''
+        Button:
+            text: 'START'
+            id: startb
+            size_hint_x: 0.2
+            on_release: root.start()
+        Button:
+            text: 'STOP'
+            id: stopb
+            disabled: True
+            size_hint_x: 0.2
+            on_release: root.stop()
+    BoxLayout:
+        orientation: 'horizontal'
+        size_hint_y: None
+        height: 150
+        BoxLayout:
+            orientation: 'vertical'
+            Label:
+                font_size: 12
+                text_size: self.size
+                valign: 'middle'
+                halign: 'left'
+                text: 'Time'
+                size_hint_y: None
+                height: 18
+            Label:
+                id: time
+                font_size: 36
+                text_size: self.size
+                valign: 'middle'
+                halign: 'center'
+                text: ""
+                canvas.before:
+                    Color:
+                        rgba: 0.059, 0.220, 0.346, 1
+                    Rectangle:
+                        pos: self.pos
+                        size: self.size
+        BoxLayout:
+            orientation: 'vertical'
+            Label:
+                font_size: 12
+                text_size: self.size
+                valign: 'middle'
+                halign: 'left'
+                text: 'Heater Voltage (V), Power (W)'
+                size_hint_y: None
+                height: 18
+            Label:
+                id: Uef
+                font_size: 36
+                text_size: self.size
+                valign: 'middle'
+                halign: 'center'
+                text: ""
+                canvas.before:
+                    Color:
+                        rgba: 0.059, 0.220, 0.346, 0.5
+                    Rectangle:
+                        pos: self.pos
+                        size: self.size
+            Label:
+                id: Pwr
+                font_size: 36
+                text_size: self.size
+                valign: 'middle'
+                halign: 'center'
+                text: ""
+                canvas.before:
+                    Color:
+                        rgba: 0.059, 0.220, 0.346, 0.5
+                    Rectangle:
+                        pos: self.pos
+                        size: self.size
+        BoxLayout:
+            orientation: 'vertical'
+            Label:
+                font_size: 12
+                text_size: self.size
+                valign: 'middle'
+                halign: 'left'
+                text: 'Shell Temp (' + chr(176) + 'C)'
+                size_hint_y: None
+                height: 18
+            Label:
+                id: T1
+                font_size: 36
+                text_size: self.size
+                valign: 'middle'
+                halign: 'center'
+                text: ""
+                canvas.before:
+                    Color:
+                        rgba: 0.059, 0.220, 0.346, 1
+                    Rectangle:
+                        pos: self.pos
+                        size: self.size
+        BoxLayout:
+            orientation: 'vertical'
+            Label:
+                font_size: 12
+                text_size: self.size
+                valign: 'middle'
+                halign: 'left'
+                text: 'Beans Temp (' + chr(176) + 'C)'
+                size_hint_y: None
+                height: 18
+            Label:
+                id: T2
+                font_size: 36
+                text_size: self.size
+                valign: 'middle'
+                halign: 'center'
+                text: ""
+                canvas.before:
+                    Color:
+                        rgba: 0.059, 0.220, 0.346, 0.5
+                    Rectangle:
+                        pos: self.pos
+                        size: self.size
+        BoxLayout:
+            orientation: 'vertical'
+            Label:
+                font_size: 12
+                text_size: self.size
+                valign: 'middle'
+                halign: 'left'
+                text: 'Beans Temp ' + chr(916) + ' (' + chr(176) + 'C/min)'
+                size_hint_y: None
+                height: 18
+            Label:
+                id: dT2
+                font_size: 36
+                text_size: self.size
+                valign: 'middle'
+                halign: 'center'
+                text: ""
+                canvas.before:
+                    Color:
+                        rgba: 0.059, 0.220, 0.346, 1
+                    Rectangle:
+                        pos: self.pos
+                        size: self.size
+    PageLayout:
+        border: 20
+        swipe_threshold: 0.2
+        page: 2
+        Label:
+            id: textbox1
+            text: root.strtodisplay
+            font_size: 14
+            text_size: self.size
+            halign: 'left'
+            valign: 'top'
+            padding_x: 20
+            padding_y: 10
+            canvas.before:
+                Color:
+                    rgba: 0.455, 0.404, 0.192, 0
+                Rectangle:
+                    pos: self.pos
+                    size: self.size
+        Label:
+            id: textbox2
+            text: root.strtodisplay
+            font_size: 14
+            text_size: self.size
+            halign: 'left'
+            valign: 'top'
+            padding_x: 20
+            padding_y: 10
+            canvas.before:
+                Color:
+                    rgba: 0.2, 0.12, 0, 1
+                Rectangle:
+                    pos: self.pos
+                    size: self.size  
+        Graph:
+            id:graph
+            font_size: 12
+            xmin: 0
+            xmax: 15
+            ymin: 20
+            ymax: 240
+            x_grid_label:True
+            y_grid_label:True
+            x_grid:True
+            y_grid:True
+            x_ticks_major: 1
+            y_ticks_major: 20
+            xlabel: 'Time'
+            ylabel: 'Temperature, Voltage'
+            padding_x: 20
+            canvas.before:
+                Color:
+                    rgba: 0.1, 0.1, 0.1, 1
+                Rectangle:
+                    pos: self.pos
+                    size: self.size            
