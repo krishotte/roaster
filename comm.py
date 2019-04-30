@@ -2,19 +2,27 @@
 # network connection with AP
 # socket connection with main app
 
-import network
+import os
 import socket
-import utime
-import machine
-from m_file import uini
-import uping
-import ustruct as struct
+
+if os.__name__ == 'uos':
+    import network
+    import utime
+    import machine
+    from m_file import uini
+    import uping
+    import ustruct as struct
+    import uselect
+else:
+    import struct
+    import selectors
 
 
-# global variables:
-pwm_freq = 5000
-p_sig = machine.PWM(machine.Pin(2), freq=pwm_freq)
-p_sig.duty(100)
+if os.__name__ == 'uos':
+    # global variables:
+    pwm_freq = 5000
+    p_sig = machine.PWM(machine.Pin(2), freq=pwm_freq)
+    p_sig.duty(100)
 
 
 class NetworkConn:
@@ -90,13 +98,16 @@ class SocketServer:
     manages socket server
     provide ip address to set and network_conn instance on init
     """
-    def __init__(self, conn):
-        self.ipaddr = conn.conf['ipaddr']
+    def __init__(self, conn_conf):
+        self.ipaddr = conn_conf['ipaddr']
         # self.sdata = socket_data()
         # self.duty0 = 10
         # self.duty1 = 10
-        self.conn = conn
+        # self.conn = conn
         self.last_conn_check = 0
+        self.server_socket = None
+        self.client_socket = None
+        self.client_address = None
 
     def start(self, timeout=None):
         """
@@ -122,8 +133,10 @@ class SocketServer:
         print('closing client socket')
         if self.client_socket is not None:
             self.client_socket.close()
+            self.client_socket = None
         print('closing socket server')
         self.server_socket.close()
+        self.server_socket = None
 
     def listen(self):
         '''
@@ -236,3 +249,50 @@ class SocketServer:
                 self.conn.connect2()
                 self.start()
                 self.listen_indef()
+
+
+class SocketServerNB(SocketServer):
+    def start(self, timeout=None):
+        self.timeout = timeout
+        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server_socket.setblocking(False)
+        print('binding server socket...')
+        self.server_socket.bind((self.ipaddr, 8003))
+        print('listening...')
+        self.server_socket.listen(5)
+
+        if os.__name__ == 'uos':
+            self.sel = uselect.poll()
+            self.sel.register(self.server_socket, uselect.POLLIN)
+        else:
+            self.sel = selectors.DefaultSelector()
+            self.sel.register(self.server_socket, selectors.EVENT_READ, data=None)
+
+    def close(self):
+        print('closing socket server')
+        self.sel.unregister(self.server_socket)
+        self.server_socket.close()
+        self.server_socket = None
+        self.client_socket = None
+
+    def check_clients(self):
+        if os.__name__ == 'uos':
+            events = self.sel.poll(1000)
+            print('events: ', events)
+            try:
+                (self.client_socket, self.client_address) = events[0][0].accept()
+                print('client connected :', self.client_address)
+            except IndexError:
+                print(' no clients connected')
+        else:
+            events = self.sel.select(timeout=self.timeout)
+            try:
+                (self.client_socket, self.client_address) = events[0][0].fileobj.accept()
+                print('client connected :', self.client_address)
+            except IndexError:
+                print(' no clients connected')
+
+    def client_close(self):
+        print('closing client socket')
+        self.client_socket.close()
+        self.client_socket = None
