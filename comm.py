@@ -151,14 +151,14 @@ class SocketServer:
             else:
                 raise
 
-    def socket_send(self, data, format='>dddd'):
+    def socket_send(self, data, format='>ffff'):  # format='>dddd'):
         print('socket sending ...')
         encoded_data = struct.pack(format, *data)
-        print(' data: ', data, '; encoded data :', encoded_data)
+        print(' data: ', data,)  # '; encoded data :', encoded_data)
         bytes_sent = self.client_socket.send(encoded_data)
-        print('  bytes sent: ', bytes_sent)
+        # print('  bytes sent: ', bytes_sent)
 
-    def socket_recv(self, bytes=32, format='>dddd'):
+    def socket_recv(self, bytes=16, format='>ffff'):  # bytes=32, format='>dddd'):
         print('socket receiving ...')
         bytes_received = self.client_socket.recv(bytes)
         data = struct.unpack(format, bytes_received)
