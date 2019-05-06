@@ -127,7 +127,7 @@ class DataGetESP32:
         return self.str1
         '''
         try:
-            data = self.socket.recv(32)
+            data = self.socket.recv(16)
         except (socket.timeout, ConnectionResetError):
             print(' socket timeout')
             str1 = '0;0;0;0\n'
@@ -137,7 +137,7 @@ class DataGetESP32:
                 print(' server socket not available')
         else:
             try:
-                decoded_data = struct.unpack('>dddd', data)
+                decoded_data = struct.unpack('>ffff', data)
                 print(' received data:', decoded_data)
                 str1 = str(round(decoded_data[0], 0)) + ';' + str(round(decoded_data[1], 1)) + ';'
                 str1 += str(round(decoded_data[2], 1)) + ';' + str(round(decoded_data[3], 1)) + '\n'
@@ -151,13 +151,15 @@ class DataGetESP32:
         return str1
 
     def start(self):
+        # TODO: replace hardcoded IP
         self.start_time = datetime.datetime.utcnow()
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.settimeout(2)
+        self.socket.settimeout(3)
         self.socket.connect(('192.168.0.6', 8003))
 
     def stop(self):
         self.socket.close()
+        self.socket = None
 
     def reconnect(self):
         self.stop()
@@ -372,6 +374,7 @@ class STWidget(BoxLayout):                      #root widget class - main functi
         self.ids.stopb.disabled = True
         Clock.unschedule(self.event)
         self.ids.startb.disabled = False
+        self.dGet.stop()
         print("stop")
 
 
