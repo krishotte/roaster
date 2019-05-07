@@ -157,10 +157,11 @@ class SocketServer:
         if self.debug is True:
             print('socket sending ...')
         encoded_data = struct.pack(format, *data)
-        if self.gebug is True:
+        if self.debug is True:
             print(' data: ', data,)  # '; encoded data :', encoded_data)
         bytes_sent = self.client_socket.send(encoded_data)
-        # print('  bytes sent: ', bytes_sent)
+        if self.debug is True:
+            print('  bytes sent: ', bytes_sent)
 
     def socket_recv(self, bytes=16, format='>ffff'):  # bytes=32, format='>dddd'):
         print('socket receiving ...')

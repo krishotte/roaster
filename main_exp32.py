@@ -55,7 +55,7 @@ def test_nb_socket(random_data=False):
     """
     network_conn.connect2()
     socket_nb.start()
-    zmpt1 = zmpt.ZMPT101B(i2c, samples=172, use_irq=False)
+    zmpt1 = zmpt.ZMPT101B(i2c, samples=172, use_irq=False, use_ads1115=True)
     max1 = max6675.MAX6675([21, 22])
     time_start = time.ticks_ms()
     i = 0

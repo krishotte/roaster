@@ -110,10 +110,11 @@ class ZMPT101B:
 
 def test_conti():
     i2c = I2C(scl=Pin(5), sda=Pin(4), freq=400000)
-    zm = ZMPT101B(i2c, use_irq=False, samples=200)
+    # zm = ZMPT101B(i2c, use_irq=False, samples=200)
+    zm = ZMPT101B(i2c, samples=172, use_irq=False, use_ad1115=True)
     net = NetworkConn('conf.json')
     net.connect2()
-    socket_nb = SocketServerNB(net.conf)  # {'ipaddr': '192.168.0.6'})
+    socket_nb = SocketServerNB(net.conf)  # , debug=True)  # {'ipaddr': '192.168.0.6'})
     socket_nb.start()
     queue1 = deque((), 200)
     # ssock.listen()
@@ -121,10 +122,11 @@ def test_conti():
     while True:
         data = zm.get_meas()
         pdata = zm.U_ef(data)
-        print('data: ', data)
+        # print('data: ', data)
 
         for each in data:
             queue1.append(each)
+        print(' queue len: ', len(queue1))
         #for each in data:
         #    ssock.client_socket.send(struct.pack('>f', each))
         # send data to client, if connected
@@ -147,4 +149,4 @@ def test_conti():
                     # socket_nb.start()
                 i += 1
 
-        utime.sleep(2)
+        utime.sleep(1)
