@@ -99,7 +99,7 @@ class SocketServer:
     manages socket server
     provide ip address to set and network_conn instance on init
     """
-    def __init__(self, conn_conf):
+    def __init__(self, conn_conf, debug=False):
         self.ipaddr = conn_conf['ipaddr']
         # self.sdata = socket_data()
         # self.duty0 = 10
@@ -109,6 +109,7 @@ class SocketServer:
         self.server_socket = None
         self.client_socket = None
         self.client_address = None
+        self.debug = debug
 
     def start(self, timeout=None):
         """
@@ -153,9 +154,11 @@ class SocketServer:
                 raise
 
     def socket_send(self, data, format='>ffff'):  # format='>dddd'):
-        print('socket sending ...')
+        if self.debug is True:
+            print('socket sending ...')
         encoded_data = struct.pack(format, *data)
-        print(' data: ', data,)  # '; encoded data :', encoded_data)
+        if self.gebug is True:
+            print(' data: ', data,)  # '; encoded data :', encoded_data)
         bytes_sent = self.client_socket.send(encoded_data)
         # print('  bytes sent: ', bytes_sent)
 

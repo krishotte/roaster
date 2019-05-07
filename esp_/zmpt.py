@@ -1,6 +1,6 @@
 import ads1x15
 from machine import Pin, I2C, ADC
-from comm import SocketServer, NetworkConn
+from comm import SocketServerNB, NetworkConn
 import ustruct as struct
 import utime
 from math import sqrt
@@ -111,17 +111,40 @@ class ZMPT101B:
 def test_conti():
     i2c = I2C(scl=Pin(5), sda=Pin(4), freq=400000)
     zm = ZMPT101B(i2c, use_irq=False, samples=200)
-    # net = NetworkConn('conf.json')
-    # net.connect2()
-    # ssock = SocketServer(net.conf)  # {'ipaddr': '192.168.0.6'})
-    # ssock.start()
+    net = NetworkConn('conf.json')
+    net.connect2()
+    socket_nb = SocketServerNB(net.conf)  # {'ipaddr': '192.168.0.6'})
+    socket_nb.start()
+    queue1 = deque((), 200)
     # ssock.listen()
 
     while True:
         data = zm.get_meas()
         pdata = zm.U_ef(data)
         print('data: ', data)
+
+        for each in data:
+            queue1.append(each)
         #for each in data:
         #    ssock.client_socket.send(struct.pack('>f', each))
+        # send data to client, if connected
+        if socket_nb.client_socket is None:
+            socket_nb.check_clients()
+        if socket_nb.client_socket is not None:
+            i = 0
+            while len(queue1) > 0:
+                try:
+                    # TODO: some queue elements gets lost when sending fails not more than 9
+                    # probably when cs is closed and buffer is not empty
+                    socket_nb.socket_send([queue1.popleft()], format='>f')
+                except AttributeError:
+                    if i == 0:
+                        print('client not connected')
+                except OSError:
+                    # TODO_: client socket close should be enough, while server is still listening - needs testing
+                    socket_nb.client_close()
+                    # socket_nb.close()
+                    # socket_nb.start()
+                i += 1
 
         utime.sleep(2)
