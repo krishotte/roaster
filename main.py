@@ -1,10 +1,11 @@
-# roast tool main v04 - serial communication optimization for responsiveness of app
+# roast tool main v05 - basic socket communication
 # 4 actual data fields
 # automatically updated monitor screen
 # file management class, data management classes, serial data get class
-# functional start, stop button, start resets time counter on arduino, proper enable/disable buttons
+# functional start, stop button, proper enable/disable buttons
 # pagelayout main screen
 # added graph display functionality, automatic time axis adjustment
+# TODO: restart time counter through the socket command
 import serial
 #import serial.tools.list_ports
 import time
@@ -107,7 +108,8 @@ class DataGetSerial:                            #data Serial class
 
 
 class DataGetESP32:
-    def __init__(self):
+    def __init__(self, ipaddr='127.0.0.1'):
+        self.ipaddr = ipaddr
         self.i = 0
         self.T1 = 20
         self.T2 = 20
@@ -116,19 +118,18 @@ class DataGetESP32:
         self.socket = None
 
     def get(self):
-        '''
-        self.T1 += 0.2 + random.random()
-        self.str1 = f'{self.i};0;{round(self.T1, 1)};{self.T2}'
-        print(self.str1)
-        # self.i += 1
-        time_delta = round((datetime.datetime.utcnow() - self.start_time).total_seconds(), 1)
-        print(time_delta)
-        self.i = time_delta
-        return self.str1
-        '''
+        """
+        handles data communication with data source
+        :return: data in string
+        # TODO: returned data to be replaced with list
+        """
         try:
+            # TODO: GUI is unrensponsive when waiting for data on socket
+            # could be eliminated by lowering socket.settimeout
+            # TODO: when socket.recv times out return empty data - need to be handled in main update method
             data = self.socket.recv(16)
         except (socket.timeout, ConnectionResetError):
+            # TODO: split socket.timeout - to get responsiveness in GUI
             print(' socket timeout')
             str1 = '0;0;0;0\n'
             try:
@@ -151,11 +152,11 @@ class DataGetESP32:
         return str1
 
     def start(self):
-        # TODO: replace hardcoded IP
+        # TODO_: replace hardcoded IP
         self.start_time = datetime.datetime.utcnow()
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.settimeout(3)
-        self.socket.connect(('192.168.0.6', 8003))
+        self.socket.connect((self.ipaddr, 8003))
 
     def stop(self):
         self.socket.close()
@@ -164,9 +165,9 @@ class DataGetESP32:
     def reconnect(self):
         self.stop()
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.settimeout(2)
+        self.socket.settimeout(3)
         try:
-            self.socket.connect(('192.168.0.6', 8003))
+            self.socket.connect((self.ipaddr, 8003))
         except socket.timeout:
             print(' reconnecting, but timed out')
 
@@ -174,7 +175,11 @@ class DataGetESP32:
         return 24
 
 
-class RawData:                                  #data class - contains raw string data
+class RawData:
+    """
+    contains raw string data
+    # TODO: while using struct raw string data should be deprecated
+    """
     def __init__(self):
         self.Raw = ""
 
@@ -195,7 +200,10 @@ class RawData:                                  #data class - contains raw strin
         return str1
 
 
-class DataPoint:                                #data class - contains one data point
+class DataPoint:
+    """
+    contains single data point
+    """
     def __init__(self):
         self.time = 0
         self.Uef = 0
@@ -231,7 +239,12 @@ class DataPoint:                                #data class - contains one data 
         return self.Pwr
 
 
-class DataTuplesList:                           #data class - contains data for garden.graph library - list of tuples
+class DataTuplesList:
+    """
+    contains data in lists of tuples (time, data)
+    suitable for kivy.garden.graph
+    # TODO: in add method replace string with list of data
+    """
     def __init__(self):
         self.Uef = []
         self.T1 = []
@@ -258,7 +271,10 @@ class DataTuplesList:                           #data class - contains data for 
         self.T2 = []
 
 
-class MinuteDelta:                              #delta class - contains minute deltas data
+class MinuteDelta:
+    """
+    holds change in temperature for last minute
+    """
     def __init__(self):
         self.actDelta = float('NaN')
         self.Deltas = []
@@ -277,7 +293,7 @@ class MinuteDelta:                              #delta class - contains minute d
         #print('delta: ' + str(self.actDelta) + ' tlast: ' + str(DTList.T2[-1][1]) + ' tback: ' + str(DTList.T2[i][1]))      #diagnostic print
 
     def getAct(self):                           #gets actual delta value - outputs float as string
-        if math.isnan(self.actDelta) == False:
+        if math.isnan(self.actDelta) is False:
             return str(round(self.actDelta, 1))
         else:
             return ''
@@ -286,7 +302,10 @@ class MinuteDelta:                              #delta class - contains minute d
         self.actDelta = float('NaN')
 
 
-class FileWrp():                                #file management class
+class FileWrp():
+    """
+    file management class
+    """
     def __init__(self):
         self.now1 = datetime.datetime.now()
         self.ffname = ''
@@ -308,50 +327,63 @@ class FileWrp():                                #file management class
         self.file.close()
 
 
-class STWidget(BoxLayout):                      #root widget class - main functionality
+class STWidget(BoxLayout):
+    """
+    main widget class
+    # TODO: add __init__
+    """
     strtodisplay = StringProperty()
-    #dGet = DataGenLinear()                     #inits data generator object
-    #dGet = DataGetSerial()                      #inits serial communication
+    # dGet = DataGenLinear()
+    # dGet = DataGetSerial()
     dGet = DataGetESP32()
 
-    file1 = FileWrp()                           #inits file object
-    rawdata = RawData()                         #inits rawdata object
-    lastPt = DataPoint()                        #inits datapoint object
-    grphdat = DataTuplesList()                  #inits data list of tuples object
-    deltas = MinuteDelta()                      #inits deltas data object
+    file1 = FileWrp()
+    rawdata = RawData()
+    last_point = DataPoint()
+    graph_data = DataTuplesList()
+    deltas = MinuteDelta()
 
-    def open(self):                             #inits plots
-        self.plotT1 = MeshLinePlot(color=[1, 0.2, 0.2, 1])      #creates plot
+    def open(self):
+        """
+        initializes graph
+        # TODO: could be moved to __init__
+        """
+        self.plotT1 = MeshLinePlot(color=[1, 0.2, 0.2, 1])
         self.plotT2 = MeshLinePlot(color=[1, 0.7, 0.2, 1])
         self.plotUef = MeshLinePlot(color=[0.6, 1, 0.2, 1])
         self.plotT1.points = []
         self.plotT2.points = []
         self.plotUef.points = []
-        self.ids.graph.add_plot(self.plotT1)                    #adds plot to graph
+        self.ids.graph.add_plot(self.plotT1)
         self.ids.graph.add_plot(self.plotT2)
         self.ids.graph.add_plot(self.plotUef)
      
-    def update_textbox(self, *args):            #updates display; needed to add *args
+    def update_textbox(self, *args):
+        """
+        updates display
+        :param args: needed for Clock.schedule
+        """
+        # TODO: replace bytes available byt try, except clause
         S1bytes = self.dGet.check()
-        if S1bytes >= 24:                           #checks whether enough data is in serial buffer (one line = 24 bytes), greatly improves GUI responsiveness
+        if S1bytes >= 24:                           # greatly improves GUI responsiveness
             strg = self.dGet.get()                  #gets string data from data generator object (e.g. serial port)
             self.rawdata.add(strg)                  #adds get data do RawData object
             a1 = self.rawdata.getRawFirst(20)       #gets data to display from RawData object
             self.strtodisplay = a1                  #displays selected data in label
-            self.lastPt.add(strg)                   #adds data to DataPoint object
-            self.grphdat.add(strg)                  #adds data to DataTuplesList object
-            self.deltas.update(self.grphdat)             #updates deltas object
-            self.ids.time.text = str(self.lastPt.gettimestr())
-            self.ids.Uef.text = str(int(round(self.lastPt.getUef(),0)))
-            self.ids.Pwr.text = str(int(round(self.lastPt.getPwr(),0)))
-            self.ids.T1.text = str(round(self.lastPt.getT1(),1))
-            self.ids.T2.text = str(round(self.lastPt.getT2(),1))
+            self.last_point.add(strg)                   #adds data to DataPoint object
+            self.graph_data.add(strg)                  #adds data to DataTuplesList object
+            self.deltas.update(self.graph_data)             #updates deltas object
+            self.ids.time.text = str(self.last_point.gettimestr())
+            self.ids.Uef.text = str(int(round(self.last_point.getUef(), 0)))
+            self.ids.Pwr.text = str(int(round(self.last_point.getPwr(), 0)))
+            self.ids.T1.text = str(round(self.last_point.getT1(), 1))
+            self.ids.T2.text = str(round(self.last_point.getT2(), 1))
             self.ids.dT2.text = self.deltas.getAct() #str(round(self.deltas.getAct(),1))
             self.file1.write(strg)
-            self.plotT1.points = self.grphdat.getT1()               #data to diplay - list of tuples - points
-            self.plotT2.points = self.grphdat.getT2()
-            self.plotUef.points = self.grphdat.getUef()
-            tmax = self.lastPt.gettime()/60                         #data max time in minutes
+            self.plotT1.points = self.graph_data.getT1()               #data to diplay - list of tuples - points
+            self.plotT2.points = self.graph_data.getT2()
+            self.plotUef.points = self.graph_data.getUef()
+            tmax = self.last_point.gettime()/60                         #data max time in minutes
             tdisp = 15                                              #graph plot length in minutes
             if tmax <= tdisp:
                 self.ids.graph.xmax = tdisp
@@ -360,8 +392,13 @@ class STWidget(BoxLayout):                      #root widget class - main functi
                 self.ids.graph.xmax = tmax//1 + 1                   #sets time axis max
                 self.ids.graph.xmin = tmax//1 - tdisp + 1           #sets time axis min
         
-    def start(self):                            #creates new file, its header and starts getting data and recording
-        self.grphdat.clear()                                        #clears DataTuplesList object
+    def start(self):
+        """
+        creates new file, its header
+        starts getting data and recording
+        :return:
+        """
+        self.graph_data.clear()                                     #clears DataTuplesList object
         self.deltas.clear()                                         #clears MinuteDelta object
         self.ids.startb.disabled = True                             #disables start button
         self.file1.create(self.ids.sample.text)                     #creates data file - todo - move 1 line downwards
@@ -370,7 +407,10 @@ class STWidget(BoxLayout):                      #root widget class - main functi
         self.ids.stopb.disabled = False                             #enables stop button
         print("start")
 
-    def stop(self):                             #stops data recording
+    def stop(self):
+        """
+        stops data recording
+        """
         self.ids.stopb.disabled = True
         Clock.unschedule(self.event)
         self.ids.startb.disabled = False
@@ -378,12 +418,12 @@ class STWidget(BoxLayout):                      #root widget class - main functi
         print("stop")
 
 
-class RoasttoolApp(App):                        #app class
+class RoasttoolApp(App):
     def build(self):
         r_widg = STWidget()
         r_widg.open()                           #creates plots in graph
         return r_widg
 
 
-if __name__ == "__main__":                      #runs app
+if __name__ == "__main__":
     RoasttoolApp().run()
