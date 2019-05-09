@@ -95,8 +95,8 @@ class ZMPT101B:
         #     meas.append(self.data_queue.popleft())
         return meas
 
-    def U_ef(self, data, multiplier=443):
-        mean = (max(data) + min(data)) / 2
+    def true_rms(self, data, multiplier=443):
+        mean = sum(data)/len(data)
         sum_squared = 0
         sum_squared_raw = 0
         for each in data:
@@ -104,7 +104,22 @@ class ZMPT101B:
             sum_squared_raw += (each - mean) ** 2
         rms = sqrt(sum_squared / len(data))
         rms_raw = sqrt(sum_squared_raw / len(data))
-        print(' rms: ', rms, ' mean: ', mean, ' rms_raw: ', rms_raw)
+        print('true rms:   rms: ', rms, ' mean: ', mean, ' rms_raw: ', rms_raw)
+        return [rms, mean, rms_raw]
+
+    def average_rms(self, data, multiplier=443):
+        """
+        returns average based rms - as basic multimeters do
+        gives correct results only for sinusoidal signals
+        """
+        mean = sum(data)/len(data)
+        abs_data = []
+        for each in data:
+            abs_data.append(abs(each - mean))
+
+        rms_raw = sum(abs_data)/len(data) * 1.11
+        rms = rms_raw * multiplier
+        print('average rms:   rms: ', rms, ' mean: ', mean, ' rms_raw: ', rms_raw)
         return [rms, mean, rms_raw]
 
 
@@ -121,7 +136,8 @@ def test_conti():
 
     while True:
         data = zm.get_meas()
-        pdata = zm.U_ef(data)
+        rms1 = zm.true_rms(data)
+        rms2 = zm.average_rms(data)
         # print('data: ', data)
 
         for each in data:

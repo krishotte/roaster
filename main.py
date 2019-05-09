@@ -108,8 +108,9 @@ class DataGetSerial:                            #data Serial class
 
 
 class DataGetESP32:
-    def __init__(self, ipaddr='127.0.0.1'):
+    def __init__(self, ipaddr='127.0.0.1', output_str=True):
         self.ipaddr = ipaddr
+        self.output_str = output_str
         self.i = 0
         self.T1 = 20
         self.T2 = 20
@@ -121,41 +122,53 @@ class DataGetESP32:
         """
         handles data communication with data source
         :return: data in string
-        # TODO: returned data to be replaced with list
+        # TODO_: returned data to be replaced with list
         """
         try:
-            # TODO: GUI is unrensponsive when waiting for data on socket
+            # TODO_: GUI is unrensponsive when waiting for data on socket
             # could be eliminated by lowering socket.settimeout
-            # TODO: when socket.recv times out return empty data - need to be handled in main update method
+            # TODO_: when socket.recv times out return empty data - need to be handled in main update method
             data = self.socket.recv(16)
         except (socket.timeout, ConnectionResetError):
-            # TODO: split socket.timeout - to get responsiveness in GUI
+            # TODO_: split socket.timeout - to get responsiveness in GUI
             print(' socket timeout')
-            str1 = '0;0;0;0\n'
+            str1 = ''  # '0;0;0;0\n'
+            data1 = []
+        except ConnectionResetError:
+            print(' unable to connect')
+            str1 = ''  # '0;0;0;0\n'
+            data1 = []
             try:
                 self.reconnect()
             except ConnectionRefusedError:
                 print(' server socket not available')
         else:
             try:
+                # time(seconds), U_ef(volts), T1(deg C), T2(deg C)
                 decoded_data = struct.unpack('>ffff', data)
                 print(' received data:', decoded_data)
                 str1 = str(round(decoded_data[0], 0)) + ';' + str(round(decoded_data[1], 1)) + ';'
                 str1 += str(round(decoded_data[2], 1)) + ';' + str(round(decoded_data[3], 1)) + '\n'
+                data1 = list(decoded_data)
             except struct.error:
-                str1 = '0;0;0;0\n'
+                str1 = ''  # '0;0;0;0\n'
+                data1 = []
                 try:
                     self.reconnect()
                 except ConnectionRefusedError:
                     print(' server socket not available')
             print(' str1: ', str1)
-        return str1
+        if self.output_str is True:
+            return str1
+        else:
+            return data1
 
     def start(self):
         # TODO_: replace hardcoded IP
+        # socket.timeout - 0.2 to get responsive GUI, possibly even lower
         self.start_time = datetime.datetime.utcnow()
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.settimeout(3)
+        self.socket.settimeout(0.2)
         self.socket.connect((self.ipaddr, 8003))
 
     def stop(self):
@@ -165,7 +178,7 @@ class DataGetESP32:
     def reconnect(self):
         self.stop()
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.settimeout(3)
+        self.socket.settimeout(0.2)
         try:
             self.socket.connect((self.ipaddr, 8003))
         except socket.timeout:
@@ -243,27 +256,55 @@ class DataTuplesList:
     """
     contains data in lists of tuples (time, data)
     suitable for kivy.garden.graph
-    # TODO: in add method replace string with list of data
+    # TODO_: in add method add possibility to insert list of data instead of string
     """
-    def __init__(self):
+    def __init__(self, input_str=True):
         self.Uef = []
         self.T1 = []
         self.T2 = []
+        self.input_str = input_str
 
-    def add(self, str1):
-        strgs = str1.split(';')
-        self.Uef.append((float(strgs[0])/60,float(strgs[1])))
-        self.T1.append((float(strgs[0])/60,float(strgs[2])))
-        self.T2.append((float(strgs[0])/60,float(strgs[3])))
+    def add(self, data):
+        if self.input_str is True:
+            strgs = data.split(';')
+            self.Uef.append((float(strgs[0])/60,float(strgs[1])))
+            self.T1.append((float(strgs[0])/60,float(strgs[2])))
+            self.T2.append((float(strgs[0])/60,float(strgs[3])))
+        else:
+            self.Uef.append((data[0]/60, data[1]))
+            self.T1.append((data[0]/60, data[2]))
+            self.T2.append((data[0]/60, data[3]))
 
-    def getUef(self):
-        return self.Uef
+    def getUef(self, last_point=False):
+        if last_point is False:
+            return self.Uef
+        else:
+            return self.Uef[-1][1]
 
-    def getT1(self):
-        return self.T1
+    def getT1(self, last_point=False):
+        if last_point is False:
+            return self.T1
+        else:
+            return self.T1[-1][1]
 
-    def getT2(self):
-        return self.T2
+    def getT2(self, last_point=False):
+        if last_point is False:
+            return self.T2
+        else:
+            return self.T2[-1][1]
+
+    def getPwr(self):
+        return self.getUef(last_point=True) ** 2 / 41.5
+
+    def gettimestr(self):
+        last_time = self.Uef[-1][0] * 60  # time in seconds
+        print(' last time: ', last_time)
+        str1 = str(int(last_time//60)) + ':' + str(format(int(round(last_time%60, 0)), '02d'))
+        return str1
+
+    def get_last_time(self):
+        # returns time in minutes
+        return self.getUef()[-1][0]
 
     def clear(self):
         self.Uef = []
@@ -302,7 +343,7 @@ class MinuteDelta:
         self.actDelta = float('NaN')
 
 
-class FileWrp():
+class FileWrp:
     """
     file management class
     """
@@ -333,15 +374,18 @@ class STWidget(BoxLayout):
     # TODO: add __init__
     """
     strtodisplay = StringProperty()
-    # dGet = DataGenLinear()
-    # dGet = DataGetSerial()
-    dGet = DataGetESP32()
 
-    file1 = FileWrp()
-    rawdata = RawData()
-    last_point = DataPoint()
-    graph_data = DataTuplesList()
-    deltas = MinuteDelta()
+    def __init__(self):
+        super().__init__()
+        # dGet = DataGenLinear()
+        # dGet = DataGetSerial()
+        self.dGet = DataGetESP32(ipaddr='192.168.0.6', output_str=False)
+
+        self.file1 = FileWrp()
+        self.raw_data = RawData()
+        self.last_point = DataPoint()
+        self.graph_data = DataTuplesList(input_str=False)
+        self.deltas = MinuteDelta()
 
     def open(self):
         """
@@ -363,12 +407,12 @@ class STWidget(BoxLayout):
         updates display
         :param args: needed for Clock.schedule
         """
-        # TODO: replace bytes available byt try, except clause
+        # TODO: replace bytes available byt try, except clause - new update_gui method
         S1bytes = self.dGet.check()
         if S1bytes >= 24:                           # greatly improves GUI responsiveness
             strg = self.dGet.get()                  #gets string data from data generator object (e.g. serial port)
-            self.rawdata.add(strg)                  #adds get data do RawData object
-            a1 = self.rawdata.getRawFirst(20)       #gets data to display from RawData object
+            self.raw_data.add(strg)                  #adds get data do RawData object
+            a1 = self.raw_data.getRawFirst(20)       #gets data to display from RawData object
             self.strtodisplay = a1                  #displays selected data in label
             self.last_point.add(strg)                   #adds data to DataPoint object
             self.graph_data.add(strg)                  #adds data to DataTuplesList object
@@ -391,7 +435,41 @@ class STWidget(BoxLayout):
             else:
                 self.ids.graph.xmax = tmax//1 + 1                   #sets time axis max
                 self.ids.graph.xmin = tmax//1 - tdisp + 1           #sets time axis min
-        
+
+    def update_gui(self, *args):
+        data = self.dGet.get()
+
+        if len(data) > 0:
+            print(' data: ', data)
+            self.graph_data.add(data)
+            self.plotT1.points = self.graph_data.getT1()
+            self.plotT2.points = self.graph_data.getT2()
+            self.plotUef.points = self.graph_data.getUef()
+
+            self.ids.time.text = str(self.graph_data.gettimestr())
+            self.ids.Uef.text = str(int(round(self.graph_data.getUef(last_point=True), 0)))
+            self.ids.Pwr.text = str(int(round(self.graph_data.getPwr(), 0)))
+            self.ids.T1.text = str(round(self.graph_data.getT1(last_point=True), 1))
+            self.ids.T2.text = str(round(self.graph_data.getT2(last_point=True), 1))
+
+            tmax = self.graph_data.get_last_time()  # data max time in minutes
+            tdisp = 15  # graph plot length in minutes
+            if tmax <= tdisp:
+                self.ids.graph.xmax = tdisp
+                self.ids.graph.xmin = 0
+            else:
+                self.ids.graph.xmax = tmax // 1 + 1  # sets time axis max
+                self.ids.graph.xmin = tmax // 1 - tdisp + 1  # sets time axis min
+
+            # write data to file
+            self.file1.write(f'{data[0]};{data[1]};{data[2]};{data[3]}\n')
+        """
+        try:
+
+        except:
+            raise
+        """
+
     def start(self):
         """
         creates new file, its header
@@ -403,7 +481,7 @@ class STWidget(BoxLayout):
         self.ids.startb.disabled = True                             #disables start button
         self.file1.create(self.ids.sample.text)                     #creates data file - todo - move 1 line downwards
         self.dGet.start()                                           #starts daq
-        self.event = Clock.schedule_interval(self.update_textbox, 0.25)
+        self.event = Clock.schedule_interval(self.update_gui, 0.5)
         self.ids.stopb.disabled = False                             #enables stop button
         print("start")
 
