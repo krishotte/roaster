@@ -48,11 +48,12 @@ class DataGenRandom:                            #data generator class
 
 
 class DataGenLinear:                            #linear data generator class
-    def __init__(self):
+    def __init__(self, output_str=True):
         self.str1 = ''
         self.i = 0
         self.T1 = 18
         self.T2 = 20
+        self.output_str = output_str
 
     def get(self):                              #generates and returns data string
         self.str1 = str(self.i) + ';' + str(random.randint(200,240) + round(random.random(),1)) + ';' 
@@ -60,7 +61,18 @@ class DataGenLinear:                            #linear data generator class
         self.i += 1
         self.T1 += 0.168
         self.T2 += 0.2
-        return self.str1
+
+        data = [
+            self.i,
+            random.randint(200, 240) + round(random.random(), 1),
+            round(self.T1 + random.random(), 1),
+            round(self.T2 + random.random(), 1),
+        ]
+
+        if self.output_str is True:
+            return self.str1
+        else:
+            return data
 
     def start(self):
         pass
@@ -68,8 +80,14 @@ class DataGenLinear:                            #linear data generator class
     def check(self):                            #checks available bytes in port
         return 24
 
+    def stop(self):
+        pass
 
-class DataGetSerial:                            #data Serial class
+
+class DataGetSerial:
+    """
+    deprecated class for serial comm with arduino
+    """
     def __init__(self):
         self.str1 = ''
         port = list(serial.tools.list_ports.comports())[0]     #lists serial port 
@@ -191,7 +209,7 @@ class DataGetESP32:
 class RawData:
     """
     contains raw string data
-    # TODO: while using struct raw string data should be deprecated
+    # TODO_: while using struct raw string data should be deprecated - currently not used
     """
     def __init__(self):
         self.Raw = ""
@@ -216,6 +234,7 @@ class RawData:
 class DataPoint:
     """
     contains single data point
+    # currently not used
     """
     def __init__(self):
         self.time = 0
@@ -315,10 +334,12 @@ class DataTuplesList:
 class MinuteDelta:
     """
     holds change in temperature for last minute
+    TODO_: update for list data - use self.update2 method
     """
     def __init__(self):
         self.actDelta = float('NaN')
         self.Deltas = []
+        self.data = []
 
     def update(self, DTList):                   #updates actDelta value
         i = -1                                  #searches from the end of the list backwards
@@ -333,7 +354,31 @@ class MinuteDelta:
                     i -= 1
         #print('delta: ' + str(self.actDelta) + ' tlast: ' + str(DTList.T2[-1][1]) + ' tback: ' + str(DTList.T2[i][1]))      #diagnostic print
 
-    def getAct(self):                           #gets actual delta value - outputs float as string
+    def update2(self, data, time_delta=0.5):
+        """
+        calculates minute delta for provided values
+        :param data: list of tuples (time, values)
+        :paramt time_delta: time in minutes
+        :return: minute delta value based on time_delta range
+        """
+        self.data = data
+        last_time = data[-1][0]
+        last_value = data[-1][1]
+
+        i = -1
+        found = False
+        while found is False and i >= -len(data):
+            time_delta_ = last_time - data[i][0]
+            # print(f' i: {i}; time delta: {time_delta_}')
+
+            if time_delta_ >= time_delta:
+                found = True
+                value_delta_ = (last_value - data[i][1]) * (1 / time_delta)
+                print(f'time delta: {time_delta_}; value delta: {value_delta_}')
+                self.actDelta = value_delta_
+            i -= 1
+
+    def get_delta(self):                           #gets actual delta value - outputs float as string
         if math.isnan(self.actDelta) is False:
             return str(round(self.actDelta, 1))
         else:
@@ -341,6 +386,7 @@ class MinuteDelta:
 
     def clear(self):
         self.actDelta = float('NaN')
+        self.data = []
 
 
 class FileWrp:
@@ -371,15 +417,16 @@ class FileWrp:
 class STWidget(BoxLayout):
     """
     main widget class
-    # TODO: add __init__
+    # TODO_: add __init__
     """
     strtodisplay = StringProperty()
 
     def __init__(self):
         super().__init__()
-        # dGet = DataGenLinear()
+        self.dGet = DataGenLinear(output_str=False)
         # dGet = DataGetSerial()
-        self.dGet = DataGetESP32(ipaddr='192.168.0.6', output_str=False)
+        # self.dGet = DataGetESP32(ipaddr='192.168.0.6', output_str=False)
+        # self.dGet = DataGetESP32(ipaddr='127.0.0.1', output_str=False)  # simulated socket device
 
         self.file1 = FileWrp()
         self.raw_data = RawData()
@@ -387,11 +434,6 @@ class STWidget(BoxLayout):
         self.graph_data = DataTuplesList(input_str=False)
         self.deltas = MinuteDelta()
 
-    def open(self):
-        """
-        initializes graph
-        # TODO: could be moved to __init__
-        """
         self.plotT1 = MeshLinePlot(color=[1, 0.2, 0.2, 1])
         self.plotT2 = MeshLinePlot(color=[1, 0.7, 0.2, 1])
         self.plotUef = MeshLinePlot(color=[0.6, 1, 0.2, 1])
@@ -404,10 +446,10 @@ class STWidget(BoxLayout):
      
     def update_textbox(self, *args):
         """
-        updates display
+        updates display - deprecated method - used with serial comm
         :param args: needed for Clock.schedule
         """
-        # TODO: replace bytes available byt try, except clause - new update_gui method
+        # TODO_: replace bytes available by try, except clause - use update_gui method
         S1bytes = self.dGet.check()
         if S1bytes >= 24:                           # greatly improves GUI responsiveness
             strg = self.dGet.get()                  #gets string data from data generator object (e.g. serial port)
@@ -422,7 +464,7 @@ class STWidget(BoxLayout):
             self.ids.Pwr.text = str(int(round(self.last_point.getPwr(), 0)))
             self.ids.T1.text = str(round(self.last_point.getT1(), 1))
             self.ids.T2.text = str(round(self.last_point.getT2(), 1))
-            self.ids.dT2.text = self.deltas.getAct() #str(round(self.deltas.getAct(),1))
+            self.ids.dT2.text = self.deltas.get_delta() #str(round(self.deltas.getAct(),1))
             self.file1.write(strg)
             self.plotT1.points = self.graph_data.getT1()               #data to diplay - list of tuples - points
             self.plotT2.points = self.graph_data.getT2()
@@ -452,6 +494,9 @@ class STWidget(BoxLayout):
             self.ids.T1.text = str(round(self.graph_data.getT1(last_point=True), 1))
             self.ids.T2.text = str(round(self.graph_data.getT2(last_point=True), 1))
 
+            self.deltas.update2(self.graph_data.getT2())
+            self.ids.dT2.text = self.deltas.get_delta()
+
             tmax = self.graph_data.get_last_time()  # data max time in minutes
             tdisp = 15  # graph plot length in minutes
             if tmax <= tdisp:
@@ -463,18 +508,11 @@ class STWidget(BoxLayout):
 
             # write data to file
             self.file1.write(f'{data[0]};{data[1]};{data[2]};{data[3]}\n')
-        """
-        try:
-
-        except:
-            raise
-        """
 
     def start(self):
         """
         creates new file, its header
         starts getting data and recording
-        :return:
         """
         self.graph_data.clear()                                     #clears DataTuplesList object
         self.deltas.clear()                                         #clears MinuteDelta object
@@ -499,7 +537,6 @@ class STWidget(BoxLayout):
 class RoasttoolApp(App):
     def build(self):
         r_widg = STWidget()
-        r_widg.open()                           #creates plots in graph
         return r_widg
 
 
